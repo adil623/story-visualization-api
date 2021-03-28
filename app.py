@@ -1,5 +1,5 @@
 from flask import Flask, jsonify
-from flask_restful import Api, Resource
+from flask_restful import Api, Resource, reqparse
 from flask import Response, request
 import firebase_admin
 from firebase_admin import credentials
@@ -89,7 +89,7 @@ class RegisterApi(Resource):
                 errRegistrationInfo['errPassword'] = "Password must be atleast 5 character long"
 
             if errRegistrationInfo['errFullname'] != '' or errRegistrationInfo['errEmail'] != '' or errRegistrationInfo['errPassword'] != '':
-                return errRegistrationInfo, 500
+                return errRegistrationInfo, 400
             else:
                 # create the record of new user in database
                 db.collection(u'users').document(registrationInfo['email']).set({
@@ -156,11 +156,11 @@ class LoginApi(Resource):
                 errLoginInfo['errPassword'] = "Password must be atleast 5 character long"
 
             if (errLoginInfo['errEmail'] != '') or (errLoginInfo['errPassword'] != ''):
-                return errLoginInfo, 500
+                return errLoginInfo, 400
             else:
                 return {"success": "User Logged In"}, 200
         except Exception as e:
-            return {'error': f"Error Occurred {e}"}, 500
+            return {'error': f"Error Occurred {e}"}, 400
 
 
 class ForgetPasswordApi(Resource):
@@ -211,12 +211,12 @@ class ForgetPasswordApi(Resource):
                     errforgetPasswordInfo['errEmail'] = "Email is invalid"
 
             if errforgetPasswordInfo['errEmail'] != '':
-                return errforgetPasswordInfo, 500
+                return errforgetPasswordInfo, 400
             else:
                 return {"success": "Email verified"}, 200
 
         except Exception as e:
-            return {'error': f"Error Occurred {e}"}, 500
+            return {'error': f"Error Occurred {e}"}, 400
 
 
 class SavedSceneApi(Resource):
@@ -267,7 +267,7 @@ class SavedSceneApi(Resource):
                     errSceneInfo['errEmail'] = "Email is invalid"
 
             if errSceneInfo['errEmail'] != '':
-                return errSceneInfo, 500
+                return errSceneInfo, 400
             else:
                 # get the current date and time of server
                 x = datetime.datetime.now()
@@ -280,20 +280,100 @@ class SavedSceneApi(Resource):
                 db.collection(u'saved_scene').add({
                     u"text": sceneInfo['text'],
                     u"email": sceneInfo['email'],
-                    u"Date": dataStr
+                    u"date": dataStr
                 })
 
                 return {"success": "Scene Saved"}, 200
 
         except Exception as e:
             # email is not valid, exception message is human-readable
-            return {'error': f"error occured {e}"}, 500
+            return {'error': f"error occured {e}"}, 400
+
+
+class ScenesByEmailApi(Resource):
+    def get(self, email):
+        # remove whitespaces if any
+        email = email.strip()
+        # convert string to lowercase
+        email = email.lower()
+
+        # initialize variable to query firestore
+        userSnapshot = None
+
+        if not email:
+            return {"failed": "you must provide an Email address"}, 400
+        else:
+            # validate
+            valid = validate_email(email)
+            # get the normalize form of email
+            email = valid.email
+
+            userSnapshot = db.collection(u'saved_scene').where(
+                u'email', u'==', email).order_by(u'date', u'DESCENDING').get()
+
+            if not userSnapshot:
+                return {"failed": "No User Found"}, 200
+            else:
+                # list to store all the retrieved documents
+                data = []
+                # loop through each document and convert it to dictionary
+                for doc in userSnapshot:
+                    data.append(doc.to_dict())
+                return {"data": data}, 200
+
+
+class UserByEmailApi(Resource):
+    def get(self, email):
+        # remove whitespaces if any
+        email = email.strip()
+        # convert string to lowercase
+        email = email.lower()
+
+        # initialize variable to query firestore
+        userSnapshot = None
+        if not email:
+            return {"failed": "you must provide an Email address"}, 400
+        else:
+            # validate
+            valid = validate_email(email)
+            # get the normalize form of email
+            email = valid.email
+            userSnapshot = db.collection(u'users').where(
+                u'email', u'==', email).get()
+            if not userSnapshot:
+                return {"failed": "No User Found"}, 200
+            else:
+                # list to store all the retrieved documents
+                data = []
+                # loop through each document and convert it to dictionary
+                for doc in userSnapshot:
+                    data.append(doc.to_dict())
+                return {"user": data}, 200
+
+
+class RemoveSceneApi(Resource):
+    def delete(self, id):
+        # remove whitespaces if any
+        id = id.strip()
+        try:
+            # delete user with this id from db
+            db.collection(u"saved_scene").document(id).delete()
+        except Exception as e:
+            return {"error": f"Error Occured {e}"}, 400
+
+        return {"success": "Scene Deleted"}, 200
 
 
 api.add_resource(RegisterApi, "/api/register")
 api.add_resource(LoginApi, "/api/login")
 api.add_resource(ForgetPasswordApi, "/api/forget_password")
-api.add_resource(SavedSceneApi, "/api/saved_scene")
+api.add_resource(SavedSceneApi, "/api/saved_scene", endpoint='scenes')
+api.add_resource(ScenesByEmailApi,
+                 "/api/saved_scene/get/<string:email>", endpoint="scene")
+api.add_resource(UserByEmailApi,
+                 "/api/user/get/<string:email>", endpoint="user")
+api.add_resource(RemoveSceneApi,
+                 "/api/saved_scene/delete/<string:id>")
 
 if __name__ == "__main__":
     app.run(debug=True)
