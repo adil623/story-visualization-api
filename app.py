@@ -318,7 +318,16 @@ class ScenesByEmailApi(Resource):
                 data = []
                 # loop through each document and convert it to dictionary
                 for doc in userSnapshot:
-                    data.append(doc.to_dict())
+                    # get the id of document
+                    id = doc.id
+                    print(id)
+                    # convert the id into dictionary
+                    data_dict = doc.to_dict()
+                    # save the doc id of each doc in data dictionary of each doc
+                    data_dict['id'] = id
+                    # append the each doc dictionary in data list
+                    data.append(data_dict)
+
                 return {"data": data}, 200
 
 
