@@ -369,11 +369,11 @@ api.add_resource(LoginApi, "/api/login")
 api.add_resource(ForgetPasswordApi, "/api/forget_password")
 api.add_resource(SavedSceneApi, "/api/saved_scene", endpoint='scenes')
 api.add_resource(ScenesByEmailApi,
-                 "/api/saved_scene/get/<string:email>", endpoint="scene")
+                 "/api/saved_scene/<string:email>", endpoint="scene")
 api.add_resource(UserByEmailApi,
-                 "/api/user/get/<string:email>", endpoint="user")
+                 "/api/user/<string:email>", endpoint="user")
 api.add_resource(RemoveSceneApi,
-                 "/api/saved_scene/delete/<string:id>")
+                 "/api/saved_scene/<string:id>")
 
 if __name__ == "__main__":
     app.run(debug=True)
